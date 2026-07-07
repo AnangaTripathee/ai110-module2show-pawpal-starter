@@ -1,0 +1,62 @@
+classDiagram
+    class Owner {
+        +int owner_id
+        +string name
+        +string email
+        +List~Pet~ pets
+        +add_pet(pet)
+        +get_pets()
+    }
+
+    class Pet {
+        +int pet_id
+        +string name
+        +string species
+        +string breed
+        +Date birthdate
+        +string medical_notes
+        +get_age()
+    }
+
+    class Task {
+        +int task_id
+        +int pet_id
+        +TaskType task_type
+        +DateTime scheduled_time
+        +Recurrence recurrence
+        +int priority
+        +bool completed
+        +mark_complete()
+        +is_overdue()
+        +conflicts_with(other_task)
+    }
+
+    class Scheduler {
+        +List~Task~ tasks
+        +add_task(task)
+        +get_tasks_for_pet(pet_id)
+        +get_todays_tasks()
+        +detect_conflicts()
+        +sort_by_priority()
+    }
+
+    class TaskType {
+        <<enumeration>>
+        FEEDING
+        WALK
+        MEDICATION
+        APPOINTMENT
+    }
+
+    class Recurrence {
+        <<enumeration>>
+        NONE
+        DAILY
+        WEEKLY
+    }
+
+    Owner "1" *-- "many" Pet : owns
+    Pet "1" ..> "many" Task : referenced by pet_id
+    Scheduler "1" o-- "many" Task : manages
+    Task ..> TaskType : uses
+    Task ..> Recurrence : uses

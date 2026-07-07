@@ -1,6 +1,9 @@
 # PawPal+ Project Reflection
 
 ## 1. System Design
+- Add a pet to an owners profile
+- Schedule a task
+- View today's/upcoming tasks, sorted by priority across all of an owners pet
 
 **a. Initial design**
 
