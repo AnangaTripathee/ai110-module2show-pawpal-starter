@@ -13,6 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from enum import Enum
+from itertools import combinations
 
 
 class TaskType(Enum):
@@ -130,6 +131,41 @@ class Scheduler:
                 return
         raise ValueError(f"No pet with pet_id={task.pet_id} found for this owner.")
 
+    def _next_task_id(self) -> int:
+        """Return a task_id one greater than the highest in use (1 if none)."""
+        existing = [task.task_id for task in self.owner.get_all_tasks()]
+        return max(existing, default=0) + 1
+
+    def complete_task(self, task: Task, now: datetime | None = None) -> Task | None:
+        """Mark a task complete; if it recurs, auto-generate and add the next
+        occurrence (DAILY -> tomorrow, WEEKLY -> +1 week) as a fresh Task and
+        return it. Returns None for non-recurring tasks; the original is kept.
+        """
+        task.mark_complete()
+        if task.recurrence is Recurrence.NONE:
+            return None
+
+        if task.recurrence is Recurrence.DAILY:
+            next_date = (now or datetime.now()).date() + timedelta(days=1)
+            next_time = task.scheduled_time.replace(
+                year=next_date.year, month=next_date.month, day=next_date.day
+            )
+        else:  # Recurrence.WEEKLY
+            next_time = task.scheduled_time + timedelta(weeks=1)
+
+        new_task = Task(
+            task_id=self._next_task_id(),
+            pet_id=task.pet_id,
+            task_type=task.task_type,
+            scheduled_time=next_time,
+            duration_minutes=task.duration_minutes,
+            recurrence=task.recurrence,
+            priority=task.priority,
+            completed=False,
+        )
+        self.add_task(new_task)
+        return new_task
+
     def get_tasks_for_pet(self, pet_id: int) -> list[Task]:
         """Return the tasks belonging to a single pet."""
         for pet in self.owner.get_pets():
@@ -147,20 +183,31 @@ class Scheduler:
         ]
 
     def detect_conflicts(self) -> list[tuple[Task, Task]]:
-        """Find overlapping task pairs at the owner level.
-
-        Conflicts are evaluated across all pets, not per-pet: a single owner
-        can't be in two places at once. Completed tasks are ignored since they
-        no longer compete for the owner's time.
+        """Return all overlapping task pairs across every pet (a single owner
+        can't be in two places at once); completed tasks are ignored.
         """
-        tasks = [t for t in self.owner.get_all_tasks() if not t.completed]
-        conflicts: list[tuple[Task, Task]] = []
-        for i in range(len(tasks)):
-            for j in range(i + 1, len(tasks)):
-                if tasks[i].conflicts_with(tasks[j]):
-                    conflicts.append((tasks[i], tasks[j]))
-        return conflicts
+        active = [t for t in self.owner.get_all_tasks() if not t.completed]
+        return [(a, b) for a, b in combinations(active, 2) if a.conflicts_with(b)]
 
     def sort_by_priority(self) -> list[Task]:
         """Return all tasks sorted by priority (1 = highest priority first)."""
         return sorted(self.owner.get_all_tasks(), key=lambda task: task.priority)
+
+    def sort_by_time(self) -> list[Task]:
+        """Return all tasks sorted by scheduled_time, earliest first (sorts on
+        the datetime directly, so no string parsing is needed).
+        """
+        return sorted(self.owner.get_all_tasks(), key=lambda task: task.scheduled_time)
+
+    def filter_tasks(
+        self, pet_id: int | None = None, completed: bool | None = None
+    ) -> list[Task]:
+        """Return tasks matching the given criteria, combined with AND; a
+        criterion left as None is not applied (no args returns every task).
+        """
+        return [
+            task
+            for task in self.owner.get_all_tasks()
+            if (pet_id is None or task.pet_id == pet_id)
+            and (completed is None or task.completed == completed)
+        ]

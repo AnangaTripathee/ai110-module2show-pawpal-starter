@@ -66,10 +66,21 @@ confirmed it avoids stale references and keeps `Task` easy to serialize.
 
 **b. Tradeoffs**
 
-- Describe one tradeoff your scheduler makes.
-- Why is that tradeoff reasonable for this scenario?
+- My `detect_conflicts()` method compares every pair of tasks (O(n²)) rather
+than sorting by time first and only comparing neighbors (O(n log n)). I
+asked my AI assistant for a more efficient alternative, and while a
+sort-then-sweep approach would scale better, I kept the simpler pairwise
+version — for a personal pet-care app with realistically a few dozen tasks
+at most, the performance difference is negligible, and the nested-loop
+version is easier to read and reason about. I'd revisit this only if the
+app needed to handle a much larger number of tasks (e.g. a multi-pet
+boarding facility rather than a single household).
 
----
+Another tradeoff: conflicts are detected as overlapping time *intervals*
+(using `scheduled_time` + `duration_minutes`), not just exact time matches.
+This is more correct — two tasks starting 10 minutes apart can still
+genuinely conflict if one runs long — but it does mean `Task` needs an
+explicit `duration_minutes` field to work, which wasn't in my original UML.
 
 ## 3. AI Collaboration
 
