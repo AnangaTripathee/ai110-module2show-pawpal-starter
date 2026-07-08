@@ -84,14 +84,54 @@ All five core behaviors — completion, addition, sorting, recurrence, and confl
 | Conflict handling | `detect_conflicts()` | Flags overlapping task times, even across different pets |
 | Recurring tasks | `complete_task(task)` | Completing a daily/weekly task auto-creates the next one |
 
+## Features
+
+- **Owner & Pet management** — track multiple pets per owner, each with their own care details (species, breed, birthdate, medical notes)
+- **Task tracking** — feedings, walks, medications, and appointments, each with a scheduled time, duration, and priority
+- **Sorting** — view tasks sorted by time (`sort_by_time()`) or by priority (`sort_by_priority()`, 1 = highest)
+- **Filtering** — narrow the task list by pet and/or completion status (`filter_tasks()`)
+- **Conflict detection** — automatically flags overlapping tasks, even across different pets, since one owner can't be in two places at once (`detect_conflicts()`)
+- **Recurring tasks** — completing a daily or weekly task automatically generates the next occurrence (`complete_task()`), while keeping the original as history
+- **Today's schedule** — a filtered, prioritized view of what's due today (`get_todays_tasks()`)
+
 ## 📸 Demo Walkthrough
 
-Describe your app in numbered steps so a reader can follow along without watching a video:
+PawPal+ can be used two ways: as a Streamlit web app (`app.py`) or verified directly in the terminal (`main.py`).
 
-1. <!-- Describe this step -->
-2. <!-- Describe this step -->
-3. <!-- Describe this step -->
-4. <!-- Describe this step -->
-5. <!-- Add more steps as needed -->
+**Main UI features (Streamlit app):**
+- Add an owner and a pet
+- Add tasks (feeding, walk, medication, appointment) with a time, duration, priority, and optional recurrence
+- Generate a schedule, viewable sorted by time or priority
+- Filter the schedule by pet or to show only incomplete tasks
+- See conflict warnings if two tasks overlap
+- Mark a recurring task complete directly from the schedule, which automatically creates the next occurrence
 
-**Screenshot or video** *(optional)*: <!-- Insert a screenshot or link to a demo video here -->
+**Example workflow:**
+1. Enter an owner's name and add a pet (e.g. "Rex", a dog)
+2. Add a task — e.g. a daily 9:00 AM walk
+3. Add a second task that overlaps it — e.g. a 9:00 AM feeding for another pet
+4. Click "Generate schedule" — the app shows both tasks and flags the overlap with a conflict warning
+5. Mark the daily walk complete — a new walk task automatically appears for tomorrow
+
+**Key Scheduler behaviors demonstrated:**
+- Tasks added out of order are correctly sorted by time
+- Filtering by pet or completion status narrows the list correctly
+- Overlapping tasks across different pets are flagged with a clear warning
+- Completing a recurring task generates its next occurrence while preserving the completed original
+
+**Sample CLI output** (`python main.py`):
+
+```
+================================================
+Today's Schedule for Ana (2026-07-07)
+================================================
+  09:00  WALK         Rex    (priority 2)
+  14:00  FEEDING      Milo   (priority 1)
+================================================
+2 task(s) today, 3 total across all pets.
+
+================================================
+Conflict check:
+================================================
+⚠️  Conflict: WALK (Rex) at 10:00 overlaps with FEEDING (Milo) at 10:00
+```

@@ -86,13 +86,24 @@ explicit `duration_minutes` field to work, which wasn't in my original UML.
 
 **a. How you used AI**
 
-- How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)?
-- What kinds of prompts or questions were most helpful?
+- I used AI throughout — brainstorming the UML design, generating class
+skeletons, implementing logic, writing tests, and drafting docs. Keeping
+separate chat sessions for implementation vs. algorithm brainstorming
+helped: the brainstorm session gave fresh options instead of just building
+on whatever we'd already decided.
 
 **b. Judgment and verification**
 
-- Describe one moment where you did not accept an AI suggestion as-is.
-- How did you evaluate or verify what the AI suggested?
+- When refactoring `detect_conflicts()`, my AI assistant offered a readable
+version (`itertools.combinations`) and a faster one (sort-then-sweep). I
+picked the readable one — my task lists are small, so the performance gain
+was theoretical, not real. I verified this by re-running my tests and CLI
+demo to confirm behavior didn't change.
+
+I also caught a case where a commit silently failed (I closed the commit
+editor wrong) and a file got reverted without me noticing — a reminder that
+I still need to check `git status`/`git log` myself instead of assuming
+things "stuck."
 
 ---
 
@@ -122,4 +133,7 @@ explicit `duration_minutes` field to work, which wasn't in my original UML.
 
 **c. Key takeaway**
 
-- What is one important thing you learned about designing systems or working with AI on this project?
+- Being the "lead architect" meant making the calls AI couldn't make for
+me — which tradeoffs were worth it, and when to actually verify something
+worked instead of assuming it did. AI was great at generating options and
+explaining tradeoffs, but picking between them was always on me.

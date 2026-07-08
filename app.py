@@ -99,7 +99,8 @@ with col3:
     priority = st.selectbox("Priority", ["low", "medium", "high"], index=2)
 
 type_options = [t.name for t in TaskType]
-col4, col5 = st.columns(2)
+recurrence_options = [r.name for r in Recurrence]
+col4, col5, col6 = st.columns(3)
 with col4:
     task_type_name = st.selectbox(
         "Task type",
@@ -108,6 +109,8 @@ with col4:
     )
 with col5:
     scheduled_time = st.time_input("Scheduled time (today)", value=time(8, 0))
+with col6:
+    recurrence_name = st.selectbox("Recurrence", recurrence_options, index=0)
 
 if st.button("Add task"):
     # Lazily create the Pet the first time a task is added, and persist it.
@@ -130,7 +133,7 @@ if st.button("Add task"):
         task_type=TaskType[task_type_name],
         scheduled_time=datetime.combine(date.today(), scheduled_time),
         duration_minutes=int(duration),
-        recurrence=Recurrence.NONE,
+        recurrence=Recurrence[recurrence_name],
         priority=PRIORITY_MAP[priority],
         completed=False,
     )
@@ -159,29 +162,126 @@ else:
 st.divider()
 
 st.subheader("Build Schedule")
-st.caption("This calls the Scheduler on the owner's data and orders today's tasks by priority.")
+st.caption("This calls the Scheduler on the owner's data to order, filter, and check today's tasks.")
 
+# Clicking "Generate schedule" latches a flag in session state so the schedule
+# (and its per-row action buttons) stay visible across the reruns that
+# Streamlit triggers when those buttons are pressed.
 if st.button("Generate schedule"):
+    st.session_state.schedule_generated = True
+
+if st.session_state.get("schedule_generated"):
     scheduler = Scheduler(owner)
+    pet_names = {pet.pet_id: pet.name for pet in owner.get_pets()}
+
+    # --- Controls: sort mode + filters -----------------------------------
+    ctrl1, ctrl2 = st.columns(2)
+    with ctrl1:
+        sort_mode = st.radio("Sort by:", ["Priority", "Time"], horizontal=True)
+    with ctrl2:
+        pets = owner.get_pets()
+        pet_choices = ["All pets"] + [f"{p.name} (#{p.pet_id})" for p in pets]
+        selected_pet = st.selectbox("Filter by pet", pet_choices)
+    only_incomplete = st.checkbox("Show only incomplete tasks")
+
+    # Map the pet selection back to a pet_id (None = all pets).
+    if selected_pet == "All pets":
+        filter_pet_id = None
+    else:
+        filter_pet_id = pets[pet_choices.index(selected_pet) - 1].pet_id
+    filter_completed = False if only_incomplete else None
+
+    # --- Conflict detection (runs on every schedule generation) ----------
+    conflicts = scheduler.detect_conflicts()
+    if conflicts:
+        for first, second in conflicts:
+            first_pet = pet_names.get(first.pet_id, "Unknown")
+            second_pet = pet_names.get(second.pet_id, "Unknown")
+            st.warning(
+                f"⚠️ Conflict: {first.task_type.value} ({first_pet}) at "
+                f"{first.scheduled_time.strftime('%H:%M')} overlaps with "
+                f"{second.task_type.value} ({second_pet}) at "
+                f"{second.scheduled_time.strftime('%H:%M')}"
+            )
+    else:
+        st.success("No conflicts found.")
+
+    # --- Build the ordered, filtered plan for today ----------------------
     todays_ids = {t.task_id for t in scheduler.get_todays_tasks()}
-    # sort_by_priority() orders every task (1 = highest); keep only today's.
-    plan = [t for t in scheduler.sort_by_priority() if t.task_id in todays_ids]
+    filtered_ids = {
+        t.task_id
+        for t in scheduler.filter_tasks(
+            pet_id=filter_pet_id, completed=filter_completed
+        )
+    }
+    # sort_by_time()/sort_by_priority() order every task; keep only the ones
+    # that are both scheduled for today and pass the active filters.
+    ordered_all = (
+        scheduler.sort_by_time()
+        if sort_mode == "Time"
+        else scheduler.sort_by_priority()
+    )
+    plan = [
+        t
+        for t in ordered_all
+        if t.task_id in todays_ids and t.task_id in filtered_ids
+    ]
 
     if not plan:
-        st.info("No tasks scheduled for today. Add some tasks above, then try again.")
+        st.info("No tasks match the current filters for today.")
     else:
-        st.success(f"Planned {len(plan)} task(s) for today, highest priority first:")
-        st.table(
+        st.success(f"Showing {len(plan)} task(s) for today, sorted by {sort_mode.lower()}:")
+        st.dataframe(
             [
                 {
                     "order": i,
                     "type": t.task_type.value,
+                    "pet": pet_names.get(t.pet_id, "Unknown"),
                     "time": t.scheduled_time.strftime("%H:%M"),
                     "duration (min)": t.duration_minutes,
                     "priority": t.priority,
+                    "recurrence": t.recurrence.value,
+                    "done": t.completed,
                 }
                 for i, t in enumerate(plan, start=1)
-            ]
+            ],
+            hide_index=True,
         )
-        st.markdown("**Why this order:** tasks are ranked by priority (1 = highest), "
-                    "so the most important care happens first.")
+        if sort_mode == "Priority":
+            st.markdown("**Why this order:** tasks are ranked by priority (1 = highest), "
+                        "so the most important care happens first.")
+        else:
+            st.markdown("**Why this order:** tasks are ordered by scheduled time, "
+                        "earliest first.")
+
+        # --- Complete recurring tasks (spawns the next occurrence) --------
+        recurring_todo = [
+            t
+            for t in plan
+            if t.recurrence is not Recurrence.NONE and not t.completed
+        ]
+        if recurring_todo:
+            st.markdown("#### Complete a recurring task")
+            st.caption(
+                "Completing a recurring task marks it done and auto-generates "
+                "its next occurrence."
+            )
+            for t in recurring_todo:
+                label = (
+                    f"✅ Complete {t.task_type.value} "
+                    f"({pet_names.get(t.pet_id, 'Unknown')}) at "
+                    f"{t.scheduled_time.strftime('%H:%M')} — {t.recurrence.value}"
+                )
+                if st.button(label, key=f"complete_{t.task_id}"):
+                    new_task = scheduler.complete_task(t)
+                    # Keep the app's id counter ahead of any id the scheduler
+                    # generated, so manually added tasks won't collide.
+                    st.session_state.next_task_id = (
+                        max(x.task_id for x in owner.get_all_tasks()) + 1
+                    )
+                    st.success(
+                        f"Marked {t.task_type.value} done; generated next "
+                        f"occurrence for "
+                        f"{new_task.scheduled_time.strftime('%Y-%m-%d %H:%M')}."
+                    )
+                    st.rerun()
