@@ -55,19 +55,25 @@ Today's Schedule for Ana (2026-07-07)
 
 ## 🧪 Testing PawPal+
 
-```bash
-# Run the full test suite:
-pytest
+PS C:\Users\anang\ai110-module2show-pawpal-starter> python -m pytest -v
+=========================================================== test session starts ===========================================================
+platform win32 -- Python 3.13.2, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\anang\AppData\Local\Programs\Python\Python313\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\anang\ai110-module2show-pawpal-starter
+plugins: anyio-4.9.0
+collected 5 items                                                                                                                          
 
-# Run with coverage:
-pytest --cov
-```
+tests/test_pawpal.py::test_task_completion PASSED                                                                                    [ 20%]
+tests/test_pawpal.py::test_task_addition PASSED                                                                                      [ 40%]
+tests/test_pawpal.py::test_sort_by_time PASSED                                                                                       [ 60%]
+tests/test_pawpal.py::test_recurrence_generates_next_occurrence PASSED                                                               [ 80%]
+tests/test_pawpal.py::test_detect_conflicts PASSED                                                                                   [100%]
 
-Sample test output:
+============================================================ 5 passed in 0.09s ============================================================
 
-```
-# Paste your pytest output here
-```
+Confidence Level:(4/5)
+
+All five core behaviors — completion, addition, sorting, recurrence, and conflict detection — are covered and passing. I'd hold back from a full 5/5 since edge cases like same-timestamp ties beyond the basic conflict check, or a pet with zero tasks, aren't explicitly tested yet.
 
 ## 📐 Smarter Scheduling
 
